@@ -69,5 +69,12 @@ namespace Structure
             }
             return log;
         }
+
+        internal void MergeOrigin()
+        {
+            ProcessCaller pc = new ProcessCaller();
+            if(Status == BranchStatus.Behind)
+                pc.GitCall(_containerRepo.WorkingDirectory, $"merge {remote}/{Name}");
+        }
     }
 }

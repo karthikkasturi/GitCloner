@@ -15,8 +15,7 @@ namespace Structure
         public DateTime RecentCheck { get; set; }
         public bool IsActive { get; set; }
         public Dictionary<string, Branch> Branches { get; set; } =  new Dictionary<string, Branch>();
-        
-        public Branch CurrentBranch { get; set; }
+        public string CurrentBranch { get; set; }
         public void Refresh()
         {
             if (!ConfirmExists())
@@ -27,14 +26,53 @@ namespace Structure
             {
                 //TODO Throw and exception that says that the file isnt a valid git repo
             }
-            //Set Current Branch
             Fetch();
+            SetCurrentBranch();
             RefreshBranches();
-            //TODO f
-            foreach (var branch in Branches)
+            RecentCheck = DateTime.Now;
+        }
+
+        private void SetCurrentBranch()
+        {
+            //git branch
+            //return starred branch
+            ProcessCaller pc = new ProcessCaller();
+            string[] branchOp = pc.GitCall(WorkingDirectory, "branch").Split('\n');
+            foreach (string line in branchOp)
             {
-                //TODO 
+                if (line.Contains("*"))
+                {
+                    CurrentBranch = line.Split(' ')[1];
+                }
             }
+            
+        }
+    
+
+        public void UpdateAutos()
+        {
+            string initBranch = CurrentBranch;
+            ProcessCaller pc = new ProcessCaller();
+            foreach (Branch branch in Branches.Values)
+            {
+                if (branch.IsAutoPull)
+                {
+                    if (branch.Status == BranchStatus.Behind)
+                    {
+                        Checkout(branch.Name);
+                        if(CurrentBranch.Equals(branch.Name))
+                            branch.MergeOrigin();
+                    }
+                }
+            }
+            Checkout(initBranch);
+        }
+
+        private void Checkout(string branchName)
+        {
+            ProcessCaller pc = new ProcessCaller();
+            pc.GitCall(WorkingDirectory, $"checkout {branchName}");
+            SetCurrentBranch();
         }
 
         private void RefreshBranches()
@@ -102,7 +140,7 @@ namespace Structure
 
         private bool ConfirmIsRepository()
         {
-            if (Directory.Exists(WorkingDirectory+".git"))
+            if (Directory.Exists(WorkingDirectory+@"\.git"))
             {
                 return true;
             }

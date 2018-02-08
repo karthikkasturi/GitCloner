@@ -4,13 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ClonerUIStructure
+namespace Structure
 {
-    class Program
-    {
-        static void Main(string[] args)
-        {
-
-        }
-    }
+    public enum BranchStatus { Ahead, Behind, Deviated, UptoDate };
 }

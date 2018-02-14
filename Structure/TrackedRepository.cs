@@ -29,7 +29,21 @@ namespace Structure
             Fetch();
             SetCurrentBranch();
             RefreshBranches();
+            LastModified = GetLastModified(WorkingDirectory);
             RecentCheck = DateTime.Now;
+
+        }
+
+        private DateTime GetLastModified(string directory)
+        {
+            DateTime lastWriteTime = Directory.GetLastWriteTime(directory);
+            foreach (var innerDirectory in Directory.EnumerateDirectories(directory))
+            {
+                var innerLastWriteTime = Directory.GetLastWriteTime(innerDirectory);
+                if (lastWriteTime < innerLastWriteTime)
+                    lastWriteTime = innerLastWriteTime;
+            }
+            return lastWriteTime;
         }
 
         private void SetCurrentBranch()
@@ -42,7 +56,13 @@ namespace Structure
             {
                 if (line.Contains("*"))
                 {
-                    CurrentBranch = line.Split(' ')[1];
+                    string currentBranch = line.Split(' ')[1];
+                    if (currentBranch.Equals("(HEAD"))
+                    {
+                        currentBranch = line.Split(' ')[4];
+                        currentBranch = currentBranch.Substring(0, currentBranch.Length-1);
+                    }
+                    CurrentBranch = currentBranch;
                 }
             }
             
@@ -60,8 +80,12 @@ namespace Structure
                     if (branch.Status == BranchStatus.Behind)
                     {
                         Checkout(branch.Name);
-                        if(CurrentBranch.Equals(branch.Name))
-                            branch.MergeOrigin();
+                        if (!CurrentBranch.Equals(branch.Name))
+                        {
+                            pc.GitCall(WorkingDirectory, $"stash save");
+                            Checkout(branch.Name);
+                        }
+                        branch.MergeOrigin();
                     }
                 }
             }
@@ -90,10 +114,30 @@ namespace Structure
                 Branch updatingBranch = Branches[branchName];
                 if (updatingBranch.HasUpstream)
                 {
+                    updatingBranch.HEAD = File.ReadAllLines(WorkingDirectory + @"\.git\ref\heads\" + updatingBranch.Name)[0];
                     updatingBranch.UpstreamHEAD = originHeads[branchName];
+                    updatingBranch.LocalLastCommitTime = GetCommitTime(updatingBranch.HEAD);
+                    updatingBranch.UpstreamLastCommitTime = GetCommitTime(updatingBranch.UpstreamHEAD);
                     updatingBranch.Check();
                 }
             }
+        }
+
+        private DateTime GetCommitTime(string commit)
+        {
+            DateTime epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Local);
+            ProcessCaller pc = new ProcessCaller();
+            string[] output = pc.GitCall(WorkingDirectory, $"cat-file -p {commit}").Split('\n');
+            long time = 0;
+            foreach(var line in output)
+            {
+                if (line.StartsWith("author"))
+                {
+                    var split = line.Split(' ');
+                    time = Convert.ToInt64(split[split.Length - 2]);
+                }
+            }
+            return epoch.AddSeconds(time); 
         }
 
         private IEnumerable<string> ReadConfigForBranches()

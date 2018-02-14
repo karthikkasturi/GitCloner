@@ -21,6 +21,9 @@ namespace Model
         public int BranchBehindBy { get; set; } = 0;
         public bool IsAutoPull { get; set; } = false;
         public BranchStatus Status { get; set; }
-
+        
+        //Should we have an IsNotify Bool property here for the
+        //desktop notification config or should we continue with
+        //the DesktopNotif class which has only one prop?
     }
 }
